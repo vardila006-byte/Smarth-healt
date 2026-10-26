@@ -85,7 +85,7 @@ enum class UserType(val label: String, val icon: ImageVector) {
 }
 
 enum class MainTab(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Default.Home),
+    HOME("Aura", Icons.Default.Home),
     FAMILIA("Mi familia", Icons.Default.Groups),
     GPS("GPS", Icons.Default.LocationOn),
     MENU("Menú", Icons.Default.Menu)
