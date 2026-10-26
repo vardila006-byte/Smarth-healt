@@ -15,10 +15,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -55,11 +65,18 @@ val BorderGray = Color(0xFFE0E0E0)
 // ─────────────────────────────────────────────
 //  NAVEGACIÓN
 // ─────────────────────────────────────────────
-enum class AppScreen { SPLASH, LOGIN, ROL, INICIO }
+enum class AppScreen { SPLASH, LOGIN, ROL, CONFIG, MAIN }
 
 enum class UserType(val label: String, val icon: ImageVector) {
     CUIDADOR("Cuidador", Icons.Default.Favorite),
     PACIENTE("Paciente", Icons.Default.Person)
+}
+
+enum class MainTab(val label: String, val icon: ImageVector) {
+    HOME("Home", Icons.Default.Home),
+    FAMILIA("Mi familia", Icons.Default.Groups),
+    GPS("GPS", Icons.Default.LocationOn),
+    MENU("Menú", Icons.Default.Menu)
 }
 
 // ─────────────────────────────────────────────
@@ -77,7 +94,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Flujo: splash → login → elegir rol → pantalla temporal de inicio */
+/** Flujo: splash → login → elegir rol → mensaje configuración → interfaz principal */
 @Composable
 fun AppRoot() {
     var screen by rememberSaveable { mutableStateOf(AppScreen.SPLASH) }
@@ -99,12 +116,16 @@ fun AppRoot() {
         AppScreen.ROL -> RoleScreen(
             onContinue = { tipo ->
                 userType = tipo
-                screen = AppScreen.INICIO
+                screen = AppScreen.CONFIG
             },
             onBack = { screen = AppScreen.LOGIN }
         )
 
-        AppScreen.INICIO -> HomeTempScreen(
+        AppScreen.CONFIG -> ConfigScreen(
+            onContinue = { screen = AppScreen.MAIN }
+        )
+
+        AppScreen.MAIN -> MainScreen(
             userType = userType ?: UserType.PACIENTE,
             onLogout = {
                 userType = null
@@ -151,7 +172,7 @@ fun SplashScreen() {
 }
 
 // ─────────────────────────────────────────────
-//  LOGIN (funcional: valida y avanza)
+//  LOGIN
 // ─────────────────────────────────────────────
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -437,51 +458,28 @@ fun RoleCard(
 }
 
 // ─────────────────────────────────────────────
-//  PANTALLA TEMPORAL (el asistente se hará después)
+//  MENSAJE DE CONFIGURACIÓN (después del rol)
 // ─────────────────────────────────────────────
 @Composable
-fun HomeTempScreen(userType: UserType, onLogout: () -> Unit) {
+fun ConfigScreen(onContinue: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(60.dp))
+
         Text(
-            text = "SMARTH HEALT",
-            fontSize = 28.sp,
+            "Configuración inicial",
+            fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
-            color = PurpleMain,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Box(
-            modifier = Modifier
-                .size(90.dp)
-                .clip(CircleShape)
-                .background(PurpleSoft),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("💜", fontSize = 40.sp)
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "Sesión iniciada como ${userType.label}",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
             color = TextDark
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
-            text = "El asistente estará disponible próximamente",
+            "Por favor completa la información de la persona con Alzheimer:",
             fontSize = 14.sp,
             color = TextGray,
             textAlign = TextAlign.Center
@@ -489,16 +487,247 @@ fun HomeTempScreen(userType: UserType, onLogout: () -> Unit) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        ConfigItem(
+            icon = Icons.Default.PhotoLibrary,
+            title = "Imágenes de la familia",
+            description = "Fotos que ayuden a reconocer a sus seres queridos"
+        )
+        ConfigItem(
+            icon = Icons.Default.Mic,
+            title = "Recordatorios de voz",
+            description = "Mensajes de audio para medicinas, citas y rutinas"
+        )
+        ConfigItem(
+            icon = Icons.Default.LocationOn,
+            title = "Ubicación actual",
+            description = "Permite conocer dónde se encuentra en todo momento"
+        )
+        ConfigItem(
+            icon = Icons.Default.Notifications,
+            title = "Eventos y recordatorios",
+            description = "Alertas diarias importantes"
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
         Button(
-            onClick = onLogout,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PurpleMain),
+            onClick = onContinue,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PurpleMain)
         ) {
-            Text("Cerrar sesión", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Continuar", color = Color.White, fontWeight = FontWeight.Bold)
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+fun ConfigItem(icon: ImageVector, title: String, description: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(PurpleSoft)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(PurpleMain),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
+            Text(description, fontSize = 13.sp, color = TextGray)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
+//  INTERFAZ PRINCIPAL (menú inferior + panel)
+// ─────────────────────────────────────────────
+@Composable
+fun MainScreen(userType: UserType, onLogout: () -> Unit) {
+    var currentTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
+    val context = LocalContext.current
+    val soon = { Toast.makeText(context, "Próximamente", Toast.LENGTH_SHORT).show() }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar(containerColor = PurpleDark) {
+                MainTab.values().forEach { tab ->
+                    NavigationBarItem(
+                        selected = currentTab == tab,
+                        onClick = { currentTab = tab },
+                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        label = { Text(tab.label, fontSize = 11.sp, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = PurpleDark,
+                            selectedTextColor = Color.White,
+                            indicatorColor = Color.White,
+                            unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                            unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                        )
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        when (currentTab) {
+            MainTab.HOME -> SimpleScreen(
+                emoji = "🏠",
+                title = "Inicio",
+                message = "Aquí estará el asistente Aura (próximamente)",
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            MainTab.FAMILIA -> SimpleScreen(
+                emoji = "👨‍👩‍👧",
+                title = "Mi familia",
+                message = "Aquí aparecerán las imágenes de la familia",
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            MainTab.GPS -> SimpleScreen(
+                emoji = "📍",
+                title = "GPS",
+                message = "Aquí se mostrará la ubicación actual",
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            MainTab.MENU -> MenuPanel(
+                onClose = { currentTab = MainTab.HOME },
+                onLogout = onLogout,
+                onOption = soon,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+    }
+}
+
+/** Panel del menú: X para cerrar + Eventos, Videos, Gallery */
+@Composable
+fun MenuPanel(
+    onClose: () -> Unit,
+    onLogout: () -> Unit,
+    onOption: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        // Botón X para cerrar
+        Row(modifier = Modifier.fillMaxWidth()) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Cerrar menú",
+                    tint = TextDark,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Menú",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextDark,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Opciones en filas de chips (como tu primera imagen)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            MenuChip("Eventos", Icons.Default.Event, Modifier.weight(1f), onOption)
+            MenuChip("Videos", Icons.Default.PlayArrow, Modifier.weight(1f), onOption)
+            MenuChip("Gallery", Icons.Default.PhotoLibrary, Modifier.weight(1f), onOption)
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        TextButton(
+            onClick = onLogout,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            Text("Cerrar sesión", color = Color(0xFFD32F2F), fontSize = 15.sp)
+        }
+    }
+}
+
+@Composable
+fun MenuChip(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(30.dp))
+            .background(PurpleSoft)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = PurpleMain,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextDark)
+    }
+}
+
+/** Pantalla simple temporal */
+@Composable
+fun SimpleScreen(emoji: String, title: String, message: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(90.dp)
+                .clip(CircleShape)
+                .background(PurpleSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(emoji, fontSize = 40.sp)
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextDark)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(message, fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center)
     }
 }
 
@@ -515,8 +744,8 @@ fun LoginPreview() {
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun RolePreview() {
+fun ConfigPreview() {
     MyApplicationTheme {
-        RoleScreen(onContinue = {}, onBack = {})
+        ConfigScreen(onContinue = {})
     }
 }
