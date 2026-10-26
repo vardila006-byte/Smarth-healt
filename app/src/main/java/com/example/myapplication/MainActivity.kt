@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,14 +38,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,6 +70,9 @@ val PurpleSoft = Color(0xFFF3E8FF)
 val TextGray = Color(0xFF8A8A8A)
 val TextDark = Color(0xFF2D2D2D)
 val BorderGray = Color(0xFFE0E0E0)
+
+// Nombre del proyecto (cámbialo aquí si lo necesitas)
+const val APP_NAME = "SMARTH HEALT"
 
 // ─────────────────────────────────────────────
 //  NAVEGACIÓN
@@ -99,6 +111,7 @@ class MainActivity : ComponentActivity() {
 fun AppRoot() {
     var screen by rememberSaveable { mutableStateOf(AppScreen.SPLASH) }
     var userType by rememberSaveable { mutableStateOf<UserType?>(null) }
+    var userEmail by rememberSaveable { mutableStateOf("") }
 
     when (screen) {
         AppScreen.SPLASH -> {
@@ -110,7 +123,10 @@ fun AppRoot() {
         }
 
         AppScreen.LOGIN -> LoginScreen(
-            onLoginSuccess = { screen = AppScreen.ROL }
+            onLoginSuccess = { email ->
+                userEmail = email
+                screen = AppScreen.ROL
+            }
         )
 
         AppScreen.ROL -> RoleScreen(
@@ -127,8 +143,10 @@ fun AppRoot() {
 
         AppScreen.MAIN -> MainScreen(
             userType = userType ?: UserType.PACIENTE,
+            userEmail = userEmail,
             onLogout = {
                 userType = null
+                userEmail = ""
                 screen = AppScreen.LOGIN
             }
         )
@@ -175,7 +193,7 @@ fun SplashScreen() {
 //  LOGIN
 // ─────────────────────────────────────────────
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
@@ -277,7 +295,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
-            onClick = { if (validate()) onLoginSuccess() },
+            onClick = { if (validate()) onLoginSuccess(email.trim()) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -559,22 +577,40 @@ fun ConfigItem(icon: ImageVector, title: String, description: String) {
 }
 
 // ─────────────────────────────────────────────
-//  INTERFAZ PRINCIPAL (menú inferior + panel)
+//  INTERFAZ PRINCIPAL (encabezado + menú inferior + panel)
 // ─────────────────────────────────────────────
 @Composable
-fun MainScreen(userType: UserType, onLogout: () -> Unit) {
+fun MainScreen(userType: UserType, userEmail: String, onLogout: () -> Unit) {
     var currentTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
     val context = LocalContext.current
     val soon = { Toast.makeText(context, "Próximamente", Toast.LENGTH_SHORT).show() }
 
     Scaffold(
+        topBar = {
+            AppHeader(userType = userType, userEmail = userEmail)
+        },
         bottomBar = {
             NavigationBar(containerColor = PurpleDark) {
                 MainTab.values().forEach { tab ->
                     NavigationBarItem(
                         selected = currentTab == tab,
                         onClick = { currentTab = tab },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        icon = {
+                            if (tab == MainTab.HOME) {
+                                val selected = currentTab == tab
+                                RobotAvatar(
+                                    modifier = Modifier.size(30.dp),
+                                    headColor = if (selected) PurpleMain else Color.White.copy(alpha = 0.75f),
+                                    faceColor = PurpleDark,
+                                    eyeColor = Color.White,
+                                    bodyColor = if (selected) PurpleMain else Color.White.copy(alpha = 0.75f),
+                                    armColor = if (selected) PurpleLight else Color.White.copy(alpha = 0.5f),
+                                    accentColor = if (selected) PurpleDark else Color.White.copy(alpha = 0.5f)
+                                )
+                            } else {
+                                Icon(tab.icon, contentDescription = tab.label)
+                            }
+                        },
                         label = { Text(tab.label, fontSize = 11.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = PurpleDark,
@@ -589,10 +625,8 @@ fun MainScreen(userType: UserType, onLogout: () -> Unit) {
         }
     ) { innerPadding ->
         when (currentTab) {
-            MainTab.HOME -> SimpleScreen(
-                emoji = "🏠",
-                title = "Inicio",
-                message = "Aquí estará el asistente Aura (próximamente)",
+            MainTab.HOME -> HomeScreen(
+                userName = displayName(userEmail),
                 modifier = Modifier.padding(innerPadding)
             )
 
@@ -617,6 +651,191 @@ fun MainScreen(userType: UserType, onLogout: () -> Unit) {
                 modifier = Modifier.padding(innerPadding)
             )
         }
+    }
+}
+
+/** Nombre a mostrar a partir del correo: "juan.perez@x.com" -> "Juan.perez" */
+fun displayName(email: String): String =
+    email.substringBefore("@").replaceFirstChar { it.uppercase() }.ifBlank { "Usuario" }
+
+/** Encabezado: nombre del proyecto a la izquierda y usuario en la esquina derecha */
+@Composable
+fun AppHeader(userType: UserType, userEmail: String) {
+    val name = displayName(userEmail)
+    val initial = name.first().uppercase()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = APP_NAME,
+            modifier = Modifier.weight(1f),
+            fontSize = 22.sp,
+            fontFamily = FontFamily.Serif,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.sp,
+            color = PurpleMain,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Datos del usuario que inició sesión
+        Row(
+            modifier = Modifier
+                .widthIn(max = 140.dp)
+                .clip(RoundedCornerShape(30.dp))
+                .background(PurpleSoft)
+                .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(PurpleMain),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(initial, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = userType.label,
+                    fontSize = 11.sp,
+                    color = PurpleMain,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+/** Pantalla de inicio con el robot asistente (Aura) */
+@Composable
+fun HomeScreen(userName: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(150.dp)
+                .clip(CircleShape)
+                .background(PurpleSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            RobotAvatar(modifier = Modifier.size(110.dp))
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+        Text("Hola, $userName", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextDark)
+    }
+}
+
+/** Robot dibujado con Canvas, usando la paleta morada de la app */
+@Composable
+fun RobotAvatar(
+    modifier: Modifier = Modifier,
+    headColor: Color = PurpleMain,
+    faceColor: Color = PurpleDark,
+    eyeColor: Color = Color.White,
+    bodyColor: Color = PurpleMain,
+    armColor: Color = PurpleLight.copy(alpha = 0.55f),
+    accentColor: Color = PurpleDark
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // Brazo saludando (izquierda)
+        val arm = Path().apply {
+            moveTo(w * 0.22f, h * 0.80f)
+            quadraticBezierTo(w * 0.00f, h * 0.78f, w * 0.06f, h * 0.50f)
+        }
+        drawPath(
+            path = arm,
+            color = armColor,
+            style = Stroke(width = w * 0.06f, cap = StrokeCap.Round)
+        )
+
+        // Antena
+        drawLine(
+            color = accentColor,
+            start = Offset(w * 0.5f, h * 0.07f),
+            end = Offset(w * 0.5f, h * 0.17f),
+            strokeWidth = w * 0.03f,
+            cap = StrokeCap.Round
+        )
+        drawCircle(color = accentColor, radius = w * 0.04f, center = Offset(w * 0.5f, h * 0.06f))
+
+        // Orejas
+        drawRoundRect(
+            color = accentColor,
+            topLeft = Offset(w * 0.08f, h * 0.36f),
+            size = Size(w * 0.12f, h * 0.20f),
+            cornerRadius = CornerRadius(w * 0.05f)
+        )
+        drawRoundRect(
+            color = accentColor,
+            topLeft = Offset(w * 0.80f, h * 0.36f),
+            size = Size(w * 0.12f, h * 0.20f),
+            cornerRadius = CornerRadius(w * 0.05f)
+        )
+
+        // Cabeza
+        drawRoundRect(
+            color = headColor,
+            topLeft = Offset(w * 0.16f, h * 0.17f),
+            size = Size(w * 0.68f, h * 0.45f),
+            cornerRadius = CornerRadius(w * 0.13f)
+        )
+
+        // Pantalla de la cara
+        drawRoundRect(
+            color = faceColor,
+            topLeft = Offset(w * 0.22f, h * 0.23f),
+            size = Size(w * 0.56f, h * 0.33f),
+            cornerRadius = CornerRadius(w * 0.10f)
+        )
+
+        // Ojos
+        drawOval(
+            color = eyeColor,
+            topLeft = Offset(w * 0.32f, h * 0.32f),
+            size = Size(w * 0.13f, h * 0.15f)
+        )
+        drawOval(
+            color = eyeColor,
+            topLeft = Offset(w * 0.55f, h * 0.32f),
+            size = Size(w * 0.13f, h * 0.15f)
+        )
+
+        // Cuerpo (domo)
+        drawArc(
+            color = bodyColor,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = true,
+            topLeft = Offset(w * 0.26f, h * 0.66f),
+            size = Size(w * 0.48f, h * 0.68f)
+        )
     }
 }
 
@@ -653,7 +872,7 @@ fun MenuPanel(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Opciones en filas de chips (como tu primera imagen)
+        // Opciones en filas de chips
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -747,5 +966,13 @@ fun LoginPreview() {
 fun ConfigPreview() {
     MyApplicationTheme {
         ConfigScreen(onContinue = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun MainPreview() {
+    MyApplicationTheme {
+        MainScreen(userType = UserType.CUIDADOR, userEmail = "maria.lopez@correo.com", onLogout = {})
     }
 }
